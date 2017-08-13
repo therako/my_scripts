@@ -4,6 +4,7 @@ set -x
 set -e
 
 ROOT_DIR=/opt/prometheus-1.7.1.linux-amd64/
+EXECUTABLE=${ROOT_DIR}/prometheus
 PROMETHEUS_FILE_SHRINK_RATIO=0.3
 PROMETHEUS_MEMORY_CHUNKS=2097152
 PROMETHEUS_RETENTION=2920h0m0s
@@ -14,7 +15,7 @@ PROMETHEUS_DATA_PATH=/mnt/disks/data/prometheus
 mkdir -p ${PROMETHEUS_DATA_PATH}
 
 
-if [ ! -f "${ROOT_DIR}/node_exporter" ]; then
+if [ ! -f "${EXECUTABLE}" ]; then
     cd /tmp && wget https://github.com/prometheus/prometheus/releases/download/v1.7.1/prometheus-1.7.1.linux-amd64.tar.gz
     tar -xf /tmp/prometheus-1.7.1.linux-amd64.tar.gz --directory /opt/
 fi
@@ -61,7 +62,7 @@ Environment=PROMETHEUS_MEMORY_CHUNKS=${PROMETHEUS_MEMORY_CHUNKS}
 Environment=PROMETHEUS_RETENTION=${PROMETHEUS_RETENTION}
 Environment=PROMETHEUS_DATA_PATH=${PROMETHEUS_DATA_PATH}
 ExecReload=/bin/kill -HUP $MAINPID
-ExecStart=${ROOT_DIR}/prometheus -alertmanager.url=${ALERTMANAGER_URL} -storage.local.retention=${PROMETHEUS_RETENTION} -storage.local.series-file-shrink-ratio=${PROMETHEUS_FILE_SHRINK_RATIO} -storage.local.memory-chunks=${PROMETHEUS_MEMORY_CHUNKS} -config.file=${PROMETHEUS_CONFIG} -storage.local.path=${PROMETHEUS_DATA_PATH}
+ExecStart=${EXECUTABLE} -alertmanager.url=${ALERTMANAGER_URL} -storage.local.retention=${PROMETHEUS_RETENTION} -storage.local.series-file-shrink-ratio=${PROMETHEUS_FILE_SHRINK_RATIO} -storage.local.memory-chunks=${PROMETHEUS_MEMORY_CHUNKS} -config.file=${PROMETHEUS_CONFIG} -storage.local.path=${PROMETHEUS_DATA_PATH}
 LimitNOFILE=65536
 TimeoutStopSec=20s
 SendSIGKILL=no
