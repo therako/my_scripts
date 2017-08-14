@@ -1,13 +1,12 @@
 #!/bin/bash
-# Usage: bash check-ports.sh 80 443
+# Usage: bash gpu-utilization.sh
 
-# list of ports to check in the local vm
-PORTS="${@:1}"
+# generates prometheus node-exported text files for GPU utilization using nvidia-smi
 
 ROOT_DIR=/opt/node_exporter-0.14.0.linux-amd64/
 TEXTFILE_COLLECTOR_PATH=${ROOT_DIR}/textfile_collector
 SCRIPT_PATH=${ROOT_DIR}/scripts
-SCRIPT_NAME=check-ports
+SCRIPT_NAME=gpu-utilization
 SCRIPT_FILE=${SCRIPT_PATH}/${SCRIPT_NAME}.sh
 REFRESH_INTERVAL=10s
 
@@ -22,7 +21,6 @@ set -x
 ROOT_DIR=${ROOT_DIR}
 TEXTFILE_COLLECTOR_PATH=${TEXTFILE_COLLECTOR_PATH}
 SCRIPT_PATH=${SCRIPT_PATH}
-PORTS="${PORTS}"
 
 EOF
 
@@ -30,19 +28,13 @@ EOF
 cat >>${SCRIPT_FILE} <<'EOF'
 while true
 do
-    for PORT in ${PORTS[@]}; do
-        RESULT_PATH=${TEXTFILE_COLLECTOR_PATH}/port_${PORT}.prom
-        ts=$(date +%s%3N)
-        timeout 1 curl localhost:${PORT} > /dev/null
-        if [ $? == "0" ]; then
-                echo $(date) ": up"
-                echo "port_${PORT}{} 1 ${ts}" >> ${RESULT_PATH}.\$\$
-        else
-                echo $(date) ": down"
-                echo "port_${PORT}{} 0 ${ts}" >> ${RESULT_PATH}.\$\$
-        fi
+    for METRIC in gpu memory; do
+        TEXT_COLLECTOR_PATH=${TEXTFILE_COLLECTOR_PATH}/gpu_utilization_${METRIC}.prom
+        ts=`date +%s%3N`
+        res=$(nvidia-smi -i 0 --query-gpu="utilization.${METRIC}" --format=csv,noheader,nounits)
+        echo "gpu_utilization_${METRIC}{} ${res} ${ts}" >> ${TEXT_COLLECTOR_PATH}.\$\$
         
-        mv ${RESULT_PATH}.\$\$ ${RESULT_PATH}
+        mv ${TEXT_COLLECTOR_PATH}.\$\$ ${TEXT_COLLECTOR_PATH}
     done
     sleep ${REFRESH_INTERVAL}
 done
