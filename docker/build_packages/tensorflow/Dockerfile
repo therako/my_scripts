@@ -1,4 +1,4 @@
-From debian:9
+From python:3.6.1
 
 RUN apt-get update || exit 0
 RUN apt-get upgrade -y
@@ -18,12 +18,13 @@ RUN echo "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8
 RUN curl https://bazel.build/bazel-release.pub.gpg | sudo apt-key add -
 RUN sudo apt-get update && sudo apt-get install -y bazel
 
-RUN apt-get install -y python3 python3-numpy python3-dev python3-pip python3-wheel
+RUN apt-get install -y python3-numpy python3-dev python3-pip python3-wheel
 RUN apt-get install -y git
-RUN ln -s /usr/bin/python3 /usr/bin/python
 
 RUN mkdir -p /code
 WORKDIR /code
 RUN git clone -b r1.5 https://github.com/tensorflow/tensorflow
+
+ADD generate_packages_script.sh /code/tensorflow/
 
 WORKDIR /code/tensorflow
