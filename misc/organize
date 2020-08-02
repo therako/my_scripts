@@ -4,6 +4,7 @@
 import argparse
 import os
 import re
+import shutil
 import sys
 
 
@@ -39,7 +40,7 @@ def strip_pattern(rootdir, pattern, no_dry_run):
                 os.rename(old_name, new_name)
 
 
-def move_all_to_root(rootdir, no_dry_run, prefix_dirname=False):
+def move_all_to_root(rootdir, no_dry_run, prefix_dirname=False, force=False):
     for (dirpath, dirnames, filenames) in os.walk(rootdir):
         if dirpath != "" and dirpath != rootdir:
             for filename in filenames:
@@ -57,7 +58,10 @@ def move_all_to_root(rootdir, no_dry_run, prefix_dirname=False):
             full_dir = os.path.join(rootdir, dirpath)
             print(f"remove {full_dir}")
             if no_dry_run:
-                os.rmdir(full_dir)
+                if force:
+                    shutil.rmtree(full_dir)
+                else:
+                    os.rmdir(full_dir)
 
 
 def dir_path(path):
@@ -82,6 +86,20 @@ parser.add_argument(
     default="",
 )
 parser.add_argument(
+    "--force",
+    "-f",
+    action="store_true",
+    help="Force delete folders even if they are not empty",
+)
+
+parser.add_argument(
+    "--prefix_dirname",
+    "-pd",
+    action='store_true',
+)
+
+
+parser.add_argument(
     "--no-dry-run",
     "-r",
     action="store_true",
@@ -92,4 +110,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     # correct_eposide_nos(args.path, args.no_dry_run)
     # strip_pattern(args.path, args.pattern, args.no_dry_run)
-    move_all_to_root(args.path, args.no_dry_run, prefix_dirname=True)
+    move_all_to_root(args.path, args.no_dry_run, args.prefix_dirname, args.force)

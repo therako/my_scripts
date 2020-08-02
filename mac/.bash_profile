@@ -8,7 +8,6 @@ alias lla='ls -la'
 alias lt='ls --tree'
 eval $(thefuck --alias)
 
-
 # Git
 alias git-remove-untracked='git fetch --prune && git branch -r | awk "{print \$1}" | egrep -v -f /dev/fd/0 <(git branch -vv | grep origin) | awk "{print \$1}" | xargs git branch -D' 
 alias git-safe-push='ggpush --force-with-lease'
@@ -30,3 +29,4 @@ gocover () {
 WORKSPACE="$HOME/w"
 alias w="cd ${WORKSPACE}"
 export PATH="$PATH:$WORKSPACE/bin"
+export GIT_SSH_COMMAND='ssh -i ~/.ssh/github'
