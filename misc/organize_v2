@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+# Some miscellaneous scripts to organize media folders
+
+import argparse
+import os
+from collections import defaultdict
+import random
+import shutil
+import string
+from pathlib import Path
+
+
+DEFAULT_SMALL_FILE_SIZE = 20 * 1024 * 1024
+IGNORE_FILENAMES_WITH = ['.DS_Store', '.crdownload']
+
+all_files=defaultdict(list)
+
+
+def _random_string(length):
+    pool = string.ascii_uppercase + string.ascii_lowercase
+    return ''.join(random.choice(pool) for i in range(length))
+
+
+def _fetch_all_files(rootdir):
+    for i in os.scandir(rootdir):
+        if i.is_file():
+            if any(x in i.name for x in IGNORE_FILENAMES_WITH):
+                continue
+            all_files[i.name].append(i.path)
+        elif i.is_dir():
+            _fetch_all_files(i.path)
+
+
+def _drop_small_files():
+    for name, paths in all_files.items():
+        for path in paths:
+            if os.path.getsize(path) < DEFAULT_SMALL_FILE_SIZE:
+                print(f"Dropping small file {path}")
+                all_files[name].remove(path)
+                if args.no_dry_run:
+                    os.remove(path)
+
+
+
+def _new_file_path(rootdir, name):
+    new_file_path = os.path.join(rootdir, name)
+    if not os.path.exists(new_file_path):
+        return new_file_path
+
+    suffix = "-" + _random_string(12)
+    p = Path(new_file_path)
+    return os.path.join(rootdir, f"{p.stem}{suffix}{p.suffix}")
+
+
+def _move_files_to_root(rootdir):
+    for name, paths in all_files.items():
+        for path in paths:
+            if os.path.dirname(path) == args.path:
+                # Ignore files that are already in root
+                continue
+
+            new_file_path = _new_file_path(rootdir, name)
+            print(f"Moving file:\n\t{path}\n\t{new_file_path}")
+            if args.no_dry_run:
+                os.rename(path, new_file_path)
+
+
+def _remove_empty_directories(rootdir):
+    for i in os.scandir(rootdir):
+        if i.is_dir():
+            if len(os.listdir(i.path)) != 0:
+                _remove_empty_directories(i.path)
+
+            if len(os.listdir(i.path)) == 0:
+                print(f"Removing empty directory: {i.path}")
+                if args.no_dry_run:
+                    shutil.rmtree(i.path)
+
+
+def dir_path(path):
+    if os.path.isdir(path):
+        return path
+    else:
+        raise argparse.ArgumentTypeError(f"readable_dir:{path} is not a valid path")
+
+
+parser = argparse.ArgumentParser(
+    description="Organize Flags"
+)
+parser.add_argument(
+    "--path",
+    "-p",
+    type=dir_path,
+)
+parser.add_argument(
+    "--no-dry-run",
+    "-r",
+    action="store_true",
+)
+
+
+args = parser.parse_args()
+
+
+if __name__ == "__main__":
+    args.path = args.path.removesuffix("/")
+    _fetch_all_files(args.path)
+    _drop_small_files()
+    _move_files_to_root(args.path)
+    _remove_empty_directories(args.path)

@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+# Some miscellaneous scripts to organize media folders
+
+import argparse
+import os
+from collections import defaultdict
+import random
+import shutil
+import string
+from pathlib import Path
+
+
+DEFAULT_SMALL_FILE_SIZE = 20 * 1024 * 1024
+IGNORE_FILENAMES_WITH = ['.DS_Store', '.crdownload', '._']
+
+all_files=defaultdict(list)
+
+
+def _random_string(length):
+    pool = string.ascii_uppercase + string.ascii_lowercase
+    return ''.join(random.choice(pool) for i in range(length))
+
+
+def _fetch_all_files(rootdir):
+    for i in os.scandir(rootdir):
+        if i.is_file():
+            if any(x in i.name for x in IGNORE_FILENAMES_WITH):
+                continue
+            all_files[i.name].append(i.path)
+        elif i.is_dir():
+            _fetch_all_files(i.path)
+
+
+
+def _new_file_path(path, name):
+    prefix = ""
+    if "0_" in name:
+        prefix = name.split("_")[0] + "_"
+
+    new_file_path = os.path.join(path, name)
+    p = Path(new_file_path)
+    rand_name = f"{prefix}{_random_string(32)}"
+    return os.path.join(path, f"{rand_name}{p.suffix}")
+
+
+def _rename_files():
+    for name, paths in all_files.items():
+        for path in paths:
+            if os.path.isdir(path):
+                continue
+
+            new_file_path = _new_file_path(os.path.dirname(path), name)
+            print(f"Moving file:\n\t{path}\n\t{new_file_path}")
+            if args.no_dry_run:
+                os.rename(path, new_file_path)
+
+
+def dir_path(path):
+    if os.path.isdir(path):
+        return path
+    else:
+        raise argparse.ArgumentTypeError(f"readable_dir:{path} is not a valid path")
+
+
+parser = argparse.ArgumentParser(
+    description="Organize Flags"
+)
+parser.add_argument(
+    "--path",
+    "-p",
+    type=dir_path,
+)
+parser.add_argument(
+    "--no-dry-run",
+    "-r",
+    action="store_true",
+)
+
+
+args = parser.parse_args()
+
+
+if __name__ == "__main__":
+    args.path = args.path.removesuffix("/")
+    _fetch_all_files(args.path)
+    _rename_files()
