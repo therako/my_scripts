@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+# Some miscellaneous scripts to organize media folders
+
+import argparse
+import os
+import re
+import sys
+
+
+def correct_eposide_nos(rootdir, file, year, no_dry_run):
+    patterns = [
+        # r"^(?P<prefix>.*)E(?P<epno>\d+)(?P<rest>.*).mp4$",
+    ]
+    for pattern in patterns:
+        prog = re.compile(pattern)
+        for filename in files:
+            if prog.match(filename):
+                ep_no = re.search(pattern, filename).group("epno")
+                ep_no = int(ep_no)
+                rest = re.search(pattern, filename).group("rest")
+                new_name = f"E{ep_no}.mp4"
+                if new_name == filename:
+                    continue
+                print(f"Renaming {filename}\n --> {new_name}")
+                if no_dry_run:
+                    os.rename(os.path.join(rootdir, filename), os.path.join(rootdir, new_name))
+
+
+def strip_pattern(rootdir, pattern, no_dry_run):
+    for (dirpath, dirnames, filenames) in os.walk(rootdir):
+        for filename in filenames:
+            new_name = filename.replace(pattern, "")
+            if new_name == filename:
+                continue
+            old_name = os.path.join(rootdir, dirpath, filename)
+            new_name = os.path.join(rootdir, dirpath, new_name)
+            print(f"Renaming {old_name}\n --> {new_name}")
+            if no_dry_run:
+                os.rename(old_name, new_name)
+
+
+def move_all_to_root(rootdir, no_dry_run, prefix_dirname=False):
+    for (dirpath, dirnames, filenames) in os.walk(rootdir):
+        if dirpath != "" and dirpath != rootdir:
+            for filename in filenames:
+                if filename == '.DS_Store':
+                    continue
+                old_name = os.path.join(rootdir, dirpath, filename)
+                print(f"{rootdir}, {dirpath}, {filename}")
+                new_filename = filename
+                if prefix_dirname:
+                    new_filename = dirpath  + "--" + filename
+                new_name = os.path.join(rootdir, new_filename)
+                print(f"Renaming {old_name}\n --> {new_name}")
+                if no_dry_run:
+                    os.rename(old_name, new_name)
+            full_dir = os.path.join(rootdir, dirpath)
+            print(f"remove {full_dir}")
+            if no_dry_run:
+                os.rmdir(full_dir)
+
+
+def dir_path(path):
+    if os.path.isdir(path):
+        return path
+    else:
+        raise argparse.ArgumentTypeError(f"readable_dir:{path} is not a valid path")
+
+
+parser = argparse.ArgumentParser(
+    description="Organize Flags"
+)
+parser.add_argument(
+    "--path",
+    "-p",
+    type=dir_path,
+)
+parser.add_argument(
+    "--pattern",
+    "-re",
+    type=str,
+    default="",
+)
+parser.add_argument(
+    "--no-dry-run",
+    "-r",
+    action="store_true",
+)
+
+if __name__ == "__main__":
+    no_dry_run = False
+    args = parser.parse_args()
+    # correct_eposide_nos(args.path, args.no_dry_run)
+    # strip_pattern(args.path, args.pattern, args.no_dry_run)
+    move_all_to_root(args.path, args.no_dry_run, prefix_dirname=True)

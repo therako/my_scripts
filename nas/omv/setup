@@ -1,0 +1,73 @@
+sudo adduser therako
+sudo usermod -aG ssh therako
+sudo usermod -aG sudo therako
+sudo apt update
+sudo apt install -y neovim curl htop tmux git gnupg
+
+# NAS python virtualenv
+sudo apt-get install -y python3-distutils python3-apt
+curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+sudo python3 get-pip.py
+sudo pip install virtualenv virtualenvwrapper
+
+>> ~/.bash_profile
+```
+export WORKON_HOME=~/.virtualenvs
+source /home/therako/.local/bin/virtualenvwrapper.sh
+```
+
+mkvirtualenv therakonas
+workon therakonas
+
+
+# Gcloud setup
+curl https://sdk.cloud.google.com | bash
+exec -l $SHELL
+gcloud init
+
+>> ~/.boto
+```
+[GSUtil]
+parallel_composite_upload_threshold = 150M
+```
+sudo apt-get install -y gcc python-dev python-setuptools
+sudo pip uninstall crcmod
+sudo pip install --no-cache-dir -U crcmod
+gsutil ver l
+
+
+
+# Dropbox
+sudo apt-get -y install libc6 libglapi-mesa libxdamage1 libxfixes3 libxcb-glx0 libxcb-dri2-0 libxcb-dri3-0 libxcb-present0 libxcb-sync1 libxshmfence1 libxxf86vm1 libxdamage-dev libxcb-glx0 libxcb-dri2-0
+
+cd ~ && wget -O - "https://www.dropbox.com/download?plat=lnx.x86_64" | tar xzf -
+~/.dropbox-dist/dropboxd
+
+sudo wget -O /usr/local/bin/dropbox "https://www.dropbox.com/download?dl=packages/dropbox.py"
+chmod +x /usr/local/bin/dropbox
+
+
+
+# GPU
+sudo apt install build-essential dkms
+# Download amdgpu-pro for ubuntu
+sudo dpkg -i amdgpu-pro-core_17.40-492261_all.deb
+sudo dpkg -i libopencl1-amdgpu-pro_17.40-492261_amd64.deb
+sudo dpkg -i clinfo-amdgpu-pro_17.40-492261_amd64.deb
+sudo dpkg -i opencl-amdgpu-pro-icd_17.40-492261_amd64.deb
+sudo dpkg -i amdgpu-pro-dkms_17.40-492261_all.deb
+sudo dpkg -i libdrm2-amdgpu-pro_2.4.82-492261_amd64.deb
+sudo dpkg -i ids-amdgpu-pro_1.0.0-492261_all.deb
+sudo dpkg -i libdrm-amdgpu-pro-amdgpu1_2.4.82-492261_amd64.deb
+
+
+# setup sonarr
+sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 2009837CBFFD68F45BC180471F4F90DE2A9B4BF8
+echo "deb https://apt.sonarr.tv/debian buster main" | sudo tee /etc/apt/sources.list.d/sonarr.list
+sudo apt update
+sudo apt install sonarr
+
+
+sudo apt-get install deluged deluge-web
+
+curl https://rclone.org/install.sh | sudo bash
