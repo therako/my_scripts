@@ -13,11 +13,9 @@ from typing import Tuple, List
 from dataclasses_json import dataclass_json
 
 
-driver = webdriver.Chrome()
 non_decimal = re.compile(r"[^\d.]+")
 
 HUB = "CGK"
-ROUTES = ["AMS"]
 
 
 @dataclass_json
@@ -39,7 +37,7 @@ class RouteStats:
     distance: int = 0
 
 
-def login():
+def login(driver):
     driver.get("http://tycoon.airlines-manager.com/network/")
     username = driver.find_element("id", "username")
     username.send_keys(os.getenv("TYCOON_EMAIL"))
@@ -49,7 +47,7 @@ def login():
     login.click()
 
 
-def find_hub_id(hub: str) -> int:
+def find_hub_id(driver, hub: str) -> int:
     driver.get("http://tycoon.airlines-manager.com/network/")
     driver.find_elements(By.XPATH, '//*[@id="lineList"]/div')
     hubs = driver.find_elements(
@@ -65,7 +63,7 @@ def find_hub_id(hub: str) -> int:
             )
 
 
-def get_all_routes(hub: str, hub_id: int) -> List[str]:
+def get_all_routes(driver, hub: str, hub_id: int) -> List[str]:
     driver.get(f"http://tycoon.airlines-manager.com/network/showhub/{hub_id}/linelist")
     route_elements = driver.find_elements(By.XPATH, '//*[@id="lineList"]/div')
 
@@ -84,25 +82,27 @@ def extract_destination(hub: str, route_element) -> str:
             return match.group(2)
 
 
-def select_route(route_text: str):
+def select_route(driver, route_text: str):
     driver.get(f"https://tycoon.airlines-manager.com/network/")
     routes = Select(driver.find_element(By.CLASS_NAME, "linePicker"))
     routes.select_by_visible_text(route_text)
 
 
-def get_max_category() -> int:
+def get_max_category(driver) -> int:
     max_cat = driver.find_element(By.XPATH, '//*[@id="box2"]/li[1]/b/img[3]')
     return int(non_decimal.sub("", max_cat.get_attribute("alt")))
 
 
-def get_distance() -> int:
+def get_distance(driver) -> int:
     dist = driver.find_element(By.XPATH, '//*[@id="box2"]/li[2]')
     return int(non_decimal.sub("", dist.text))
 
 
-def get_route_stats(route_text: str) -> RouteStats:
-    select_route(route_text)
-    route_stats = RouteStats(category=get_max_category(), distance=get_distance())
+def get_route_stats(driver, route_text: str) -> RouteStats:
+    select_route(driver, route_text)
+    route_stats = RouteStats(
+        category=get_max_category(driver), distance=get_distance(driver)
+    )
 
     prices = driver.find_element(By.LINK_TEXT, "Route prices")
     driver.get(prices.get_attribute("href"))
@@ -152,18 +152,19 @@ def is_extracted(hub: str, route: str):
 
 if __name__ == "__main__":
     try:
-        login()
-        hub_id = find_hub_id(HUB)
-        ROUTES = list(filter(None, get_all_routes(HUB, hub_id)))
+        driver = webdriver.Chrome()
+        login(driver)
+        hub_id = find_hub_id(driver, HUB)
+        ROUTES = list(filter(None, get_all_routes(driver, HUB, hub_id)))
         print(",".join(ROUTES))
         for route in ROUTES:
             if route and not is_extracted(HUB, route):
                 route_name = f"{HUB} - {route}"
-                route_stats = get_route_stats(route_name)
+                route_stats = get_route_stats(driver, route_name)
                 save_output(HUB, route, route_stats)
                 print(f"{route_name}: \n\t {route_stats}")
     except Exception:
         traceback.print_exception(*sys.exc_info())
     finally:
-        time.sleep(30)
+        time.sleep(10)
         driver.quit()
