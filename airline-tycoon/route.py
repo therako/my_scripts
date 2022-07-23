@@ -11,8 +11,13 @@ from dataclasses_json import dataclass_json
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
+from selenium.webdriver.chrome.options import Options
 
 non_decimal = re.compile(r"[^\d.]+")
+
+chrome_options = Options()
+chrome_options.add_argument("--headless")
+chrome_options.add_argument("--window-size=1920x1080")
 
 
 @dataclass_json
@@ -53,11 +58,13 @@ def find_hub_id(driver, hub: str) -> int:
     for hub_element in hubs:
         match = re.search("Hub ([A-Z]{3}) -", hub_element.text)
         if match and match.group(1) == hub:
-            return int(
+            hub_id = int(
                 hub_element.find_element(By.LINK_TEXT, "Hub details")
                 .get_attribute("href")
                 .split("/")[-1],
             )
+            print(f"Hub ID for {hub} == {hub_id}")
+            return hub_id
 
 
 def get_all_routes(driver, hub: str, hub_id: int) -> List[str]:
@@ -86,8 +93,11 @@ def select_route(driver, route_text: str):
 
 
 def get_max_category(driver) -> int:
-    max_cat = driver.find_element(By.XPATH, '//*[@id="box2"]/li[1]/b/img[3]')
-    return int(non_decimal.sub("", max_cat.get_attribute("alt")))
+    try:
+        max_cat = driver.find_element(By.XPATH, '//*[@id="box2"]/li[1]/b/img[3]')
+        return int(non_decimal.sub("", max_cat.get_attribute("alt")))
+    except Exception:
+        pass
 
 
 def get_distance(driver) -> int:
@@ -147,28 +157,47 @@ def is_extracted(hub: str, route: str):
     return os.path.exists(f"tmp/{hub}/{route}.json")
 
 
+def extract_route_price_stats(driver, hub: str, route: str, force=False):
+    if route and (not is_extracted(hub, route) or force):
+        route_name = f"{hub} - {route}"
+        route_stats = get_route_stats(driver, route_name)
+        save_output(hub, route, route_stats)
+        print(f"{route_name}: \n\t {route_stats}")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "hub", help="Enter HUB name you need to extract route stats for"
     )
     parser.add_argument(
+        "destination",
+        help="Enter a destination/ ALL to extract all routes to HUB (Default: ALL)",
+        default="ALL",
+    )
+    parser.add_argument(
         "--force", "-f", action="store_true", help="Force extract all routes for HUB"
+    )
+    parser.add_argument(
+        "--skip_extraction",
+        "-s",
+        action="store_true",
+        help="Skip extracting route stats for HUB, used to check all purchased routes.",
     )
     args = parser.parse_args()
     try:
-        driver = webdriver.Chrome()
+        driver = webdriver.Chrome(options=chrome_options)
         login(driver)
         hub_id = find_hub_id(driver, args.hub)
-        routes = list(filter(None, get_all_routes(driver, args.hub, hub_id)))
-        print(f"All routes from HUB {args.hub}: {','.join(routes)}")
-        for route in routes:
-            if route and (not is_extracted(args.hub, route) or args.force):
-                route_name = f"{args.hub} - {route}"
-                route_stats = get_route_stats(driver, route_name)
-                save_output(args.hub, route, route_stats)
-                print(f"{route_name}: \n\t {route_stats}")
-    except Exception:
+        if args.destination.upper() == "ALL":
+            routes = list(filter(None, get_all_routes(driver, args.hub, hub_id)))
+        else:
+            routes = [args.destination.upper()]
+        print(f"All routes from HUB {args.hub}:\n" + "\n".join(routes))
+        if not args.skip_extraction:
+            for route in routes:
+                extract_route_price_stats(driver, args.hub, route, args.force)
+    except Exception as ex:
         traceback.print_exception(*sys.exc_info())
     finally:
         time.sleep(5)
