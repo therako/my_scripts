@@ -1,21 +1,18 @@
+import argparse
 import os
-
-import traceback
-import time
 import re
 import sys
-
-from selenium import webdriver
-from selenium.webdriver.support.ui import Select
-from selenium.webdriver.common.by import By
+import time
+import traceback
 from dataclasses import dataclass
-from typing import Tuple, List
-from dataclasses_json import dataclass_json
+from typing import List, Tuple
 
+from dataclasses_json import dataclass_json
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import Select
 
 non_decimal = re.compile(r"[^\d.]+")
-
-HUB = "CGK"
 
 
 @dataclass_json
@@ -151,20 +148,28 @@ def is_extracted(hub: str, route: str):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "hub", help="Enter HUB name you need to extract route stats for"
+    )
+    parser.add_argument(
+        "--force", "-f", action="store_true", help="Force extract all routes for HUB"
+    )
+    args = parser.parse_args()
     try:
         driver = webdriver.Chrome()
         login(driver)
-        hub_id = find_hub_id(driver, HUB)
-        ROUTES = list(filter(None, get_all_routes(driver, HUB, hub_id)))
-        print(",".join(ROUTES))
-        for route in ROUTES:
-            if route and not is_extracted(HUB, route):
-                route_name = f"{HUB} - {route}"
+        hub_id = find_hub_id(driver, args.hub)
+        routes = list(filter(None, get_all_routes(driver, args.hub, hub_id)))
+        print(f"All routes from HUB {args.hub}: {','.join(routes)}")
+        for route in routes:
+            if route and (not is_extracted(args.hub, route) or args.force):
+                route_name = f"{args.hub} - {route}"
                 route_stats = get_route_stats(driver, route_name)
-                save_output(HUB, route, route_stats)
+                save_output(args.hub, route, route_stats)
                 print(f"{route_name}: \n\t {route_stats}")
     except Exception:
         traceback.print_exception(*sys.exc_info())
     finally:
-        time.sleep(10)
+        time.sleep(5)
         driver.quit()

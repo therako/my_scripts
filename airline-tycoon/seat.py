@@ -1,33 +1,22 @@
-import traceback
-import time
+import argparse
 import os
 import sys
-from retry import retry
+import time
+import traceback
+from dataclasses import dataclass
+from typing import List
 
-from route import RouteStats, non_decimal
+import pandas as pd
+from retry import retry
 from selenium import webdriver
-from selenium.webdriver.support.ui import Select
-from selenium.webdriver.common.by import By
 from selenium.common.exceptions import (
     ElementClickInterceptedException,
     NoSuchElementException,
 )
-from typing import List
-import pandas as pd
-from dataclasses import dataclass
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import Select
 
-AIRCRAFTMAKE = "Airbus"
-AIRCRAFTMODEL = "A380-800 (903 km/h)"
-
-HUB = "CGK"
-To_DESTINATIONS = %w(
-TFS
-ZRH
-AGP
-CPH
-ARN
-GVA
-)
+from route import RouteStats, non_decimal
 
 
 @dataclass
@@ -44,17 +33,30 @@ class WaveStat:
     turnover_days: int
 
 
-def find_seat_config(driver: webdriver.Remote, source: str, destinations: List[str]):
+def find_seat_config(
+    driver: webdriver.Remote,
+    source: str,
+    destinations: List[str],
+    aircraft_make: str,
+    aircraft_model: str,
+):
     driver.get("https://destinations.noway.info/en/seatconfigurator/index.html")
     cf_aircraftmake = Select(driver.find_element("id", "cf_aircraftmake"))
-    cf_aircraftmake.select_by_visible_text(AIRCRAFTMAKE)
+    for option in cf_aircraftmake.options:
+        if aircraft_make.lower() in option.text.lower():
+            option.click()
+
     cf_aircraftmodel = Select(driver.find_element("id", "cf_aircraftmodel"))
-    cf_aircraftmodel.select_by_visible_text(AIRCRAFTMODEL)
+    for option in cf_aircraftmodel.options:
+        if aircraft_model.lower() in option.text.lower():
+            option.click()
+
     change_to_airport_codes(driver)
 
     for destination in destinations:
         fillin_route_stats(driver, source, destination)
 
+    time.sleep(5)
     calculate_seat_config(driver)
     wave_stats = scan_seat_configs()
     show_best_configs(wave_stats)
@@ -65,12 +67,10 @@ def show_best_configs(wave_stats):
     df.loc[:, "total_turnover_str"] = (
         df["total_turnover"].astype(int).map("{:,}".format)
     )
-    print(f"Best by ROI:")
-    print(df.iloc[df["roi"].idxmax()])
+    df["note"] = ""
+    df.iloc[df["roi"].idxmax(), df.columns.get_loc("note")] = "Best ROI"
     print(f"Best by Turnover:")
-    print(df.iloc[df["total_turnover"].idxmax()])
-
-    print("*** ALL CONFIGS ***")
+    df.iloc[df["total_turnover"].idxmax(), df.columns.get_loc("note")] = "Best Turnover"
     print(df)
 
 
@@ -125,7 +125,7 @@ def scan_seat_configs(maxWave=10):
     return wave_stats
 
 
-@retry(NoSuchElementException, delay=5, tries=2)
+@retry(NoSuchElementException, delay=5, tries=6)
 def extract_wave_config(driver, wave: int):
     wave_stat_el = driver.find_element("id", f"nwy_seatconfigurator_wave_{wave}_stats")
     seat_config_el = wave_stat_el.find_elements(
@@ -178,12 +178,41 @@ def read_route_stats(source: str, destination: str):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "hub", help="Enter HUB name you need to extract route stats for eg: CGK"
+    )
+    parser.add_argument(
+        "destinations",
+        help="""
+            List of destination airport code (comma seperated)
+            eg: TFS,ZRH,AGP,CPH,ARN,GVA
+        """,
+    )
+    parser.add_argument(
+        "--aircraft_make",
+        "-m",
+        help="Aircraft maker name as per Airline Tycoon",
+        default="Airbus",
+    )
+    parser.add_argument(
+        "--aircraft_model",
+        "-a",
+        help="Aircraft model name for the Aircraft maker",
+        default="A380-800",
+    )
+    args = parser.parse_args()
     try:
         driver = webdriver.Chrome()
-        find_seat_config(driver, HUB, To_DESTINATIONS)
+        find_seat_config(
+            driver,
+            args.hub,
+            args.destinations.split(","),
+            args.aircraft_make,
+            args.aircraft_model,
+        )
     except Exception:
         traceback.print_exception(*sys.exc_info())
     finally:
-        pass
-        time.sleep(20)
+        time.sleep(5)
         driver.quit()
