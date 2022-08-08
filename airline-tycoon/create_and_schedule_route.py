@@ -47,14 +47,12 @@ def get_aircraft_config(seat_config_df: pd.DataFrame, nth=2):
     )
 
 
-@retry(NoSuchElementException, delay=1, tries=10, jitter=1)
-def select_hub_and_route(
-    driver: WebDriver, hub_id: int, hub: str, destination: str, aircraft_model: str
-):
+def select_flight(driver: WebDriver, hub_id: int, aircraft_model: str):
     time.sleep(1)
     js_click(driver, driver.find_element(By.XPATH, f"//span[@data-hubid='{hub_id}']"))
     time.sleep(2)
     el = driver.find_element("id", "aircraftNameFilter")
+    el.clear()
     el.send_keys(searchable_aircraft_model(aircraft_model))
     time.sleep(2)
     js_click(
@@ -63,7 +61,10 @@ def select_hub_and_route(
             By.CSS_SELECTOR, "input[type='radio'][value='utilizationPercentageAsc']"
         ),
     )
-    time.sleep(1)
+
+
+@retry(NoSuchElementException, delay=1, tries=10, jitter=1)
+def select_route_for_aircraft(driver: WebDriver, hub: str, destination: str):
     js_click(
         driver,
         driver.find_element(
@@ -100,8 +101,9 @@ def js_click(driver, element):
 
 def schedule_a_flight(driver: WebDriver, hub_id, hub, destination, aircraft_model):
     driver.get("http://tycoon.airlines-manager.com/network/planning")
-    select_hub_and_route(driver, hub_id, hub, destination, aircraft_model)
+    select_flight(driver, hub_id, aircraft_model)
     check_for_free_aircraft(driver, hub, aircraft_model)
+    select_route_for_aircraft(driver, hub, destination)
 
     js_click(
         driver,
